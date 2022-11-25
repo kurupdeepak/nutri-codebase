@@ -19,7 +19,8 @@ class DataLoader:
         self.data_config = data_config
         self.cafe1_dish_info = DishInfo(data_config.metadata_dir + data_config.dish_cafe1_file)
         self.cafe2_dish_info = DishInfo(data_config.metadata_dir + data_config.dish_cafe2_file)
-
+        self.dish_subset = None
+        self.dish_ing_subset = None
         cafe_1, cafe1_ing = self.cafe1_dish_info.get_dish_info()
         cafe_2, cafe2_ing = self.cafe2_dish_info.get_dish_info()
         self.LOG_HANDLE = "DataLoader -->"
@@ -47,15 +48,23 @@ class DataLoader:
 
         self.__split_data(debug)
 
-        self.__verify_images(debug)
+        self.__filter_data_with_images(debug)
 
-    def get_dishes(self):
+    def get_dishes(self, subset=True):
+        if subset:
+            return self.dish_subset
         return self.dish
 
-    def get_dish_ingredients(self):
+    def get_dish_ingredients(self, subset=True):
+        if subset:
+            return self.dish_ing_subset
+
         return self.dish_ingredients
 
-    def get_data(self):
+    def get_data(self, subset=True):
+        if subset:
+            return self.dish_subset, self.dish_ing_subset
+
         return self.dish, self.dish_ingredients
 
     def get_splits(self):
@@ -100,13 +109,13 @@ class DataLoader:
 
         if debug:
             print(self.LOG_HANDLE, "Test Dish Ids = ", self.test_dish_ids.shape, s1.shape,
-                  s1.value_counts())
+                  s1.exists.value_counts())
             print(self.LOG_HANDLE, "Train Dish Ids = ", self.train_dish_ids.shape, s2.shape,
-                  s2.value_counts())
+                  s2.exists.value_counts())
             print(self.LOG_HANDLE, "RGB Train Ids = ", self.rgb_train.shape, s3.shape,
-                  s3.value_counts())
+                  s3.exists.value_counts())
             print(self.LOG_HANDLE, "RGB Test Ids = ", self.rgb_test.shape, s4.shape,
-                  s4.value_counts())
+                  s4.exists.value_counts())
 
             i = random.randrange(0, len(self.train_dish_ids))
             # print(self.LOG_HANDLE,i,train_dish_ids.dish_id[i])
@@ -148,3 +157,14 @@ class DataLoader:
         self.dish["total_fat"] = self.dish.total_fat.astype("float32")
         self.dish["total_carb"] = self.dish.total_carb.astype("float32")
         self.dish["total_protein"] = self.dish.total_protein.astype("float32")
+
+    def __filter_data_with_images(self, debug):
+        dish_images = DatasetUtil.get_rgb_imagepath(self.dish.dish_id)
+
+        merged_ids = pd.concat([self.train_ids.dish_id, self.test_ids.dish_id])
+
+        tmp = self.dish[self.dish.dish_id.isin(merged_ids)]
+
+        self.dish_ing_subset = self.dish_ingredients[self.dish_ingredients.dish_id.isin(merged_ids)]
+
+        self.dish_ing_subset = tmp.merge(dish_images)
